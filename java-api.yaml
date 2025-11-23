@@ -19,7 +19,6 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
-          # We'll add env vars for Postgres/Redis later
 ---
 apiVersion: v1
 kind: Service
