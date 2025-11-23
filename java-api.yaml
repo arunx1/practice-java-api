@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-api
+  namespace: apps
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: java-api
+  template:
+    metadata:
+      labels:
+        app: java-api
+    spec:
+      containers:
+        - name: java-api
+          image: localhost:32000/java-api:v1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          # We'll add env vars for Postgres/Redis later
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-api
+  namespace: apps
+spec:
+  type: ClusterIP
+  selector:
+    app: java-api
+  ports:
+    - port: 80
+      targetPort: 8080
