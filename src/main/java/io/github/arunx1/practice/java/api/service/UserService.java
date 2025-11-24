@@ -19,11 +19,13 @@ public class UserService {
     private final JdbcTemplate jdbcTemplate;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    public final String host;
 
     public UserService(JdbcTemplate jdbcTemplate, StringRedisTemplate redisTemplate, ObjectMapper objectMapper){
         this.jdbcTemplate = jdbcTemplate;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.host = System.getenv().getOrDefault("HOSTNAME", "unknown");
     }
 
     private String cacheKey(Integer id) {
@@ -37,14 +39,15 @@ public class UserService {
                     rs.getInt("id"),
                     rs.getString("name"),
                     rs.getString("email"),
-                    null
+                    null,
+                    "default"
             );
         }
     };
 
-    public List<UserDto> listUsers() {
+    public Optional<List<UserDto>> listUsers() {
         String sql = "SELECT id, name, email FROM users ORDER BY id ASC";
-        return jdbcTemplate.query(sql, userRowMapper);
+        return Optional.of(jdbcTemplate.query(sql, userRowMapper));
     }
 
     public Optional<UserDto> getUserFromCache(Integer id) {
@@ -54,7 +57,7 @@ public class UserService {
             return Optional.empty();
         try {
             UserDto dto = objectMapper.readValue(userJson, UserDto.class);
-            return Optional.of(new UserDto(dto.id(), dto.name(), dto.email(), "cache"));
+            return Optional.of(new UserDto(dto.id(), dto.name(), dto.email(), "cache", host));
         } catch (JacksonException e) {
             redisTemplate.delete(key);
             return Optional.empty();
@@ -67,7 +70,7 @@ public class UserService {
             UserDto dto = jdbcTemplate.queryForObject(sql, userRowMapper, id);
             if (dto == null)
                 return Optional.empty();
-            return Optional.of(new UserDto(dto.id(), dto.name(), dto.email(), "db"));
+            return Optional.of(new UserDto(dto.id(), dto.name(), dto.email(), "db", host));
         } catch (EmptyResultDataAccessException e){
             return Optional.empty();
         }
@@ -79,7 +82,7 @@ public class UserService {
             return cachedUser;
         Optional<UserDto> dbUser = getUserFromDb(id);
         dbUser.ifPresent(userDto -> {
-            UserDto toCache = new UserDto(userDto.id(), userDto.name(), userDto.email(), null);
+            UserDto toCache = new UserDto(userDto.id(), userDto.name(), userDto.email(), null, null);
             try {
                 redisTemplate.opsForValue().set(cacheKey(id), objectMapper.writeValueAsString(toCache));
             } catch (JacksonException e) {

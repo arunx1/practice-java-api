@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: java-api
-          image: localhost:32000/java-api:v2
+          image: localhost:32000/java-api:v3
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
