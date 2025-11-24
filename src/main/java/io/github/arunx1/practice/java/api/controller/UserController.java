@@ -1,6 +1,11 @@
 package io.github.arunx1.practice.java.api.controller;
 
+import io.github.arunx1.practice.java.api.dto.UserDto;
+import io.github.arunx1.practice.java.api.service.UserService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -11,22 +16,36 @@ import java.util.Map;
 @RestController
 @RequestMapping("/")
 public class UserController {
+    private final UserService userService;
+
+    public UserController(UserService userService){
+        this.userService = userService;
+    }
+
     @GetMapping("/health")
     public Map<String, Object> health() {
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("status", "ok");
-        resp.put("service", "java-api");
-        return resp;
+        boolean pg = userService.isPostgresUp();
+        boolean redis = userService.isRedisUp();
+        return new HashMap<>(){{
+            put("status", (pg && redis) ? "ok" : "degraded");
+            put("postgres", pg ? "up" : "down");
+            put("redis", redis ? "up" : "down");
+            put("service", "java-api");
+        }};
     }
 
     @GetMapping("/users")
-    public List<Map<String, Object>> listUsers() {
-        // For now just a static stub.
-        // Later we'll fetch from Postgres and/or Python API + Redis.
-        Map<String, Object> user = new HashMap<>();
-        user.put("id", 1);
-        user.put("name", "stub-user");
-        user.put("source", "java-api-stub");
-        return List.of(user);
+    public List<UserDto> listUsers() {
+        return userService.listUsers();
+    }
+
+    @GetMapping("/users/{id}")
+    public ResponseEntity<?> getUser(@PathVariable Integer id) {
+        return userService.getUser(id)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body(Map.of("message","User not found"))
+                );
     }
 }
